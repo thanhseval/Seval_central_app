@@ -1,0 +1,98 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+require("dotenv").config();
+var app = require('../app');
+var debug = require('debug')('seval-central-app:server');
+var http = require('http');
+const https = require('https');
+const fs = require('fs');
+/**
+ * Get port from environment and store in Express.
+ */
+
+const httpPort = normalizePort(process.env.HTTP_PORT || '3000');
+const httpsPort = normalizePort(process.env.HTTPS_PORT || '8001');
+app.set('httpPort', httpPort);
+app.set('httpsPort', httpsPort);
+/**
+ * Create HTTP server.
+ */
+const httpServer = http.createServer(app);
+
+/**
+ * Create HTTPS server.
+ */
+const privateKey = fs.readFileSync('/etc/openssl/signed.key', 'utf8');
+const certificate = fs.readFileSync('/etc/openssl/signed.crt', 'utf8');
+const credentials = { key: privateKey, cert: certificate };
+const httpsServer = https.createServer(credentials, app);
+
+/**
+ * Listen on provided ports, on all network interfaces.
+ */
+httpServer.listen(httpPort);
+httpServer.on('error', onError(httpPort));
+httpServer.on('listening', onListening(httpServer));
+
+httpsServer.listen(httpsPort);
+httpsServer.on('error', onError(httpsPort));
+httpsServer.on('listening', onListening(httpsServer));
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+  return false;
+}
+
+/**
+ * Event listener for server "error" event.
+ */
+function onError(port) {
+  return function (error) {
+    if (error.syscall !== 'listen') {
+      console.error(error);
+      throw error;
+    }
+
+    const bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
+
+    // handle specific listen errors with friendly messages
+    switch (error.code) {
+      case 'EACCES':
+        console.error(bind + ' requires elevated privileges');
+        process.exit(1);
+        break;
+      case 'EADDRINUSE':
+        console.error(bind + ' is already in use');
+        process.exit(1);
+        break;
+      default:
+        console.error(error);
+        throw error;
+    }
+  };
+}
+
+/**
+ * Event listener for server "listening" event.
+ */
+function onListening(server) {
+  return function () {
+    const addr = server.address();
+    const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
+    console.log('Listening on ' + bind);
+  };
+}
